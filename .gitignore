@@ -1,0 +1,17 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+.vercel/
+.pdf-tools/
+pdf-page*.png
+dashboard-check.png
+GEM Imports eBay Reseller Dashboard.pdf
+vite.config.js
+vite.config.d.ts
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
