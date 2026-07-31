@@ -8,6 +8,7 @@ dist/
 .pdf-tools/
 pdf-page*.png
 dashboard-check.png
+empty-dashboard-check.png
 GEM Imports eBay Reseller Dashboard.pdf
 vite.config.js
 vite.config.d.ts

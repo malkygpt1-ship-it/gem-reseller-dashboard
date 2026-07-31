@@ -31,4 +31,13 @@ Open `http://localhost:5173`.
 
 React, TypeScript, Tailwind CSS, TanStack Table, React Query, Recharts, and Vite.
 
-Supabase authentication and persistence are the next integration step.
+## Supabase
+
+The normalized schema, row-level security policies, and indexes live in
+`supabase/migrations`. Apply them to a linked project with:
+
+```bash
+npx supabase db push
+```
+
+No placeholder products or analytics are seeded.
