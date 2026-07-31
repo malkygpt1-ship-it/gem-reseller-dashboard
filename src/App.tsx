@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import {
   Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
@@ -55,6 +55,10 @@ export default function App() {
   const [vat, setVat] = useState<VatBasis>(() => localStorage.getItem(VAT_KEY) === 'ex' ? 'ex' : 'inc')
   const [selected, setSelected] = useState<Product | null>(null)
   const [mobile, setMobile] = useState(false)
+  const openProduct = (product: Product) => {
+    setSelected(product)
+    setView('catalogue')
+  }
 
   const saveProducts = (next: Product[]) => {
     setProducts(next)
@@ -84,13 +88,12 @@ export default function App() {
     <main className="flex-1 min-w-0 lg:ml-[244px]">
       <Topbar setMobile={setMobile} />
       <div className="p-4 md:p-7 lg:p-9 max-w-[1500px] mx-auto">
-        {view === 'dashboard' && <Dashboard products={products} planner={planner} vat={vat} setVat={changeVat} go={setView} open={setSelected} />}
-        {view === 'catalogue' && <Catalogue products={products} vat={vat} go={setView} open={setSelected} addPlanner={addPlanner} />}
-        {view === 'import' && <ImportProduct products={products} save={saveProducts} open={setSelected} go={setView} />}
+        {view === 'dashboard' && <Dashboard products={products} planner={planner} vat={vat} setVat={changeVat} go={setView} open={openProduct} />}
+        {view === 'catalogue' && <Catalogue products={products} vat={vat} go={setView} selected={selected} close={() => setSelected(null)} save={updateProduct} open={setSelected} addPlanner={addPlanner} />}
+        {view === 'import' && <ImportProduct products={products} save={saveProducts} open={openProduct} go={setView} />}
         {view === 'planner' && <Planner products={products} planner={planner} save={savePlanner} vat={vat} go={setView} />}
       </div>
     </main>
-    {selected && <ProductDrawer product={selected} vat={vat} close={() => setSelected(null)} addPlanner={addPlanner} save={updateProduct} />}
   </div>
 }
 
@@ -190,7 +193,7 @@ function BestOpportunities({ products, vat, open, go }: { products: Product[], v
 function FilterSelect({ label, value, set, options }: { label: string, value: string, set: (v: string) => void, options: string[] }) { return <label className="text-[9px] text-slate-600">{label}<select value={value} onChange={e => set(e.target.value)} className="soft block rounded-lg px-2 py-1.5 mt-1 text-[10px] text-slate-300">{options.map(o => <option key={o}>{o}</option>)}</select></label> }
 function FilterNumber({ label, value, set }: { label: string, value: number, set: (v: number) => void }) { return <label className="text-[9px] text-slate-600">{label}<input type="number" min="0" value={value} onChange={e => set(Number(e.target.value) || 0)} className="soft block rounded-lg px-2 py-1.5 mt-1 text-[10px] w-28" /></label> }
 
-function Catalogue({ products, vat, go, open, addPlanner }: { products: Product[], vat: VatBasis, go: Go, open: (p: Product) => void, addPlanner: (id: string) => void }) {
+function Catalogue({ products, vat, go, selected, close, save, open, addPlanner }: { products: Product[], vat: VatBasis, go: Go, selected: Product | null, close: () => void, save: (product: Product) => void, open: (p: Product) => void, addPlanner: (id: string) => void }) {
   const [search, setSearch] = useState('')
   const columns = useMemo(() => {
     const helper = createColumnHelper<Product>()
@@ -207,7 +210,7 @@ function Catalogue({ products, vat, go, open, addPlanner }: { products: Product[
     ]
   }, [vat, addPlanner])
   const table = useReactTable({ data: products, columns, state: { globalFilter: search }, onGlobalFilterChange: setSearch, getCoreRowModel: getCoreRowModel(), getFilteredRowModel: getFilteredRowModel(), getSortedRowModel: getSortedRowModel() })
-  return <><PageTitle eyebrow="Product intelligence" title="GEM catalogue"><span className="text-[11px] text-slate-500">{products.length} products</span></PageTitle><div className="card">{products.length === 0 ? <EmptyState title="Your GEM product catalogue is empty." body="Import your first GEM product URL to begin tracking costs and eBay resale potential." go={go} /> : <><div className="p-4 border-b border-white/[.06]"><label className="soft h-10 rounded-xl flex items-center px-3"><Search size={15} className="text-slate-600" /><input aria-label="Search catalogue" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search title, GEM SKU or category…" className="bg-transparent outline-none text-xs px-3 w-full" /></label></div><div className="overflow-x-auto scrollbar"><table className="w-full"><thead>{table.getHeaderGroups().map(group => <tr key={group.id}>{group.headers.map(h => <th key={h.id} className="text-left text-[9px] uppercase text-slate-600 px-4 py-3 whitespace-nowrap">{flexRender(h.column.columnDef.header, h.getContext())}</th>)}</tr>)}</thead><tbody>{table.getRowModel().rows.map(row => <tr key={row.id} onClick={() => open(row.original)} className="border-t border-white/[.05] cursor-pointer hover:bg-white/[.02]">{row.getVisibleCells().map(cell => <td key={cell.id} className="px-4 py-3 text-xs">{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>)}</tr>)}</tbody></table></div></>}</div></>
+  return <><PageTitle eyebrow="Product intelligence" title="GEM catalogue"><span className="text-[11px] text-slate-500">{products.length} products</span></PageTitle><div className="card">{products.length === 0 ? <EmptyState title="Your GEM product catalogue is empty." body="Import your first GEM product URL to begin tracking costs and eBay resale potential." go={go} /> : <><div className="p-4 border-b border-white/[.06]"><label className="soft h-10 rounded-xl flex items-center px-3"><Search size={15} className="text-slate-600" /><input aria-label="Search catalogue" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search title, GEM SKU or category…" className="bg-transparent outline-none text-xs px-3 w-full" /></label></div><div className="overflow-x-auto scrollbar"><table className="w-full"><thead>{table.getHeaderGroups().map(group => <tr key={group.id}>{group.headers.map(h => <th key={h.id} className="text-left text-[9px] uppercase text-slate-600 px-4 py-3 whitespace-nowrap">{flexRender(h.column.columnDef.header, h.getContext())}</th>)}</tr>)}</thead><tbody>{table.getRowModel().rows.map(row => <Fragment key={row.id}><tr onClick={() => selected?.id === row.original.id ? close() : open(row.original)} className={`border-t border-white/[.05] cursor-pointer hover:bg-white/[.02] ${selected?.id === row.original.id ? 'bg-lime/[.025]' : ''}`}>{row.getVisibleCells().map(cell => <td key={cell.id} className="px-4 py-3 text-xs">{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>)}</tr>{selected?.id === row.original.id && <tr><td colSpan={columns.length} className="p-0 border-t border-lime/15"><CompactProductPanel product={selected} vat={vat} close={close} addPlanner={addPlanner} save={save} /></td></tr>}</Fragment>)}</tbody></table></div></>}</div></>
 }
 
 function ImportProduct({ products, save, open, go }: { products: Product[], save: (products: Product[]) => void, open: (product: Product) => void, go: Go }) {
@@ -248,6 +251,52 @@ function Planner({ products, planner, save, vat, go }: { products: Product[], pl
   const revenue = active.reduce((sum, x) => sum + profitFor(x.product, vat).expectedRevenuePerLot * x.item.lotQuantity, 0)
   const profit = active.reduce((sum, x) => sum + profitFor(x.product, vat).profitPerLot * x.item.lotQuantity, 0)
   return <><PageTitle eyebrow="Buying decisions" title="Purchase planner"><span className="text-[11px] text-slate-500">{active.length} active products</span></PageTitle><div className="grid xl:grid-cols-[1.4fr_.6fr] gap-4"><div className="card">{lines.length === 0 ? <EmptyState title="No products added to the purchase planner." body="Add a GEM product from the catalogue to calculate capital required." go={go} /> : lines.map(({ item, product }) => <div key={product.id} className="p-4 border-b border-white/[.05] flex items-center gap-3"><input aria-label={`Select ${product.title}`} type="checkbox" checked={item.selected} onChange={e => save(planner.map(x => x.productId === product.id ? { ...x, selected: e.target.checked } : x))} /><Image product={product} /><div className="flex-1 min-w-0"><div className="text-xs font-semibold truncate">{product.title}</div><div className="text-[10px] text-slate-600 mt-1">{money(productCosts(product, vat).lot)} per lot · {vat} VAT</div></div><div className="soft rounded-lg flex items-center"><button onClick={() => save(planner.map(x => x.productId === product.id ? { ...x, lotQuantity: Math.max(1, x.lotQuantity - 1) } : x))} className="px-2">−</button><span className="w-6 text-center text-xs">{item.lotQuantity}</span><button onClick={() => save(planner.map(x => x.productId === product.id ? { ...x, lotQuantity: x.lotQuantity + 1 } : x))} className="px-2 text-lime">+</button></div><button aria-label={`Remove ${product.title}`} onClick={() => save(planner.filter(x => x.productId !== product.id))} className="text-slate-700 hover:text-rose-400"><Trash2 size={15} /></button></div>)}</div><div className="card p-6 h-fit"><h3 className="heading font-bold">Purchase summary</h3><div className="space-y-4 mt-6"><SummaryMetric label={`Capital required · ${vat} VAT`} value={cost} /><SummaryMetric label="Projected revenue" value={revenue} /><SummaryMetric label="Projected profit" value={profit} /></div><div className="heading text-3xl text-lime font-extrabold mt-6">{money(profit)}</div><div className="text-[10px] text-slate-600">Projected profit</div></div></div></>
+}
+
+function CompactProductPanel({ product, vat, close, addPlanner, save }: { product: Product, vat: VatBasis, close: () => void, addPlanner: (id: string) => void, save: (product: Product) => void }) {
+  const costs = productCosts(product, vat)
+  const [sale, setSale] = useState(product.research?.expectedSellingPrice ?? 0)
+  const [refreshing, setRefreshing] = useState(false)
+  const [refreshMessage, setRefreshMessage] = useState('')
+  const rates = eligibleRoyalMailRates({
+    lengthCm: product.packagedLengthCm ?? null,
+    widthCm: product.packagedWidthCm ?? null,
+    depthCm: product.packagedDepthCm ?? null,
+    weightKg: product.packagedWeightKg ?? null,
+  })
+  const [rateId, setRateId] = useState(rates[0]?.id ?? 'manual')
+  const [shipping, setShipping] = useState(rates[0]?.onlinePrice ?? 0)
+  const profit = calculateProfit({ unitPurchaseCost: costs.unit, salePrice: sale, ebayPercentageFee: 12.8, ebayFixedFee: .3, shippingCost: shipping, packagingCost: .45, unitsPerLot: product.unitsPerLot })
+  const hasMeasurements = product.packagedLengthCm != null && product.packagedWidthCm != null && product.packagedDepthCm != null && product.packagedWeightKg != null
+
+  const refresh = async () => {
+    setRefreshing(true)
+    setRefreshMessage('')
+    try {
+      const response = await fetch('/api/import-product', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: product.gemUrl }) })
+      const payload = await response.json() as { product?: Product, error?: string }
+      if (!response.ok || !payload.product) throw new Error(payload.error ?? 'Refresh failed.')
+      save({ ...payload.product, id: product.id, importedAt: product.importedAt, notes: product.notes, research: product.research, opportunityStatus: product.opportunityStatus })
+      setRefreshMessage('Product specifications refreshed.')
+    } catch (error) {
+      setRefreshMessage(error instanceof Error ? error.message : 'Refresh failed.')
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
+  return <div className="bg-[#0b0e12] px-4 py-5 md:px-6">
+    <div className="flex flex-col xl:flex-row gap-5">
+      <div className="xl:w-[28%] min-w-0 flex gap-4"><Image product={product} /><div className="min-w-0"><div className="flex items-center gap-2"><OpportunityBadge value={product.opportunityStatus} /><span className="text-[9px] text-slate-600">{product.stockStatus.replaceAll('_', ' ')}</span></div><h3 className="heading font-bold text-base mt-2 truncate">{product.title}</h3><p className="text-[10px] text-slate-600 mt-1">GEM SKU {product.gemSku ?? '—'} · {product.unitsPerLot} units</p><div className="flex gap-2 mt-3"><button onClick={() => addPlanner(product.id)} className="bg-lime text-black rounded-lg px-3 py-2 text-[10px] font-bold">+ Planner</button><a href={product.gemUrl} target="_blank" rel="noreferrer" className="soft rounded-lg px-3 py-2 text-[10px]">GEM page</a><button onClick={close} className="soft rounded-lg px-3 py-2 text-[10px]">Close</button></div></div></div>
+      <div className="xl:w-[22%] grid grid-cols-2 xl:grid-cols-1 gap-2"><CompactMetric label={`Lot · ${vat} VAT`} value={money(costs.lot)} /><CompactMetric label={`Unit · ${vat} VAT`} value={money(costs.unit)} /><CompactMetric label="eBay confidence" value={product.research?.confidenceScore == null ? 'Not enough data' : `${product.research.confidenceScore} · ${product.research.confidenceLabel}`} /></div>
+      <div className="xl:w-[25%] soft rounded-xl p-4"><div className="text-[10px] font-bold">Packaged specifications</div>{hasMeasurements ? <><div className="text-xs font-semibold mt-3">{product.packagedLengthCm} × {product.packagedWidthCm} × {product.packagedDepthCm} cm</div><div className="text-[10px] text-slate-500 mt-1">{product.packagedWeightKg} kg packaged weight</div></> : <><p className="text-[10px] text-amber-300 mt-3">Specifications were not recorded for this earlier import.</p><button onClick={refresh} disabled={refreshing} className="text-lime text-[10px] font-bold mt-2">{refreshing ? 'Refreshing…' : 'Refresh from GEM'}</button></>}{refreshMessage && <p className="text-[9px] text-slate-400 mt-2">{refreshMessage}</p>}</div>
+      <div className="xl:w-[25%] soft rounded-xl p-4"><div className="text-[10px] font-bold">Compact profit view</div><div className="grid grid-cols-2 gap-2 mt-3"><NumberInput label="eBay selling price" value={sale} set={setSale} /><label className="text-[9px] text-slate-600">Royal Mail<select value={rateId} onChange={e => { const id = e.target.value; setRateId(id); const rate = ROYAL_MAIL_RATES.find(item => item.id === id); setShipping(rate?.onlinePrice ?? 0) }} className="soft rounded-lg mt-1 block w-full px-2 py-2 text-[10px]"><option value="manual">Manual</option>{rates.map(rate => <option key={rate.id} value={rate.id}>{rate.service} · {rate.format} · {money(rate.onlinePrice)}</option>)}</select></label></div><div className="grid grid-cols-3 gap-2 mt-3"><CompactMetric label="Shipping" value={money(shipping)} /><CompactMetric label="Profit / unit" value={money(profit.profitPerUnit)} /><CompactMetric label="ROI" value={percent(profit.roiPercentage)} /></div>{hasMeasurements && rates.length === 0 && <p className="text-[9px] text-amber-300 mt-2">Measurements exceed Royal Mail Medium Parcel limits.</p>}</div>
+    </div>
+  </div>
+}
+
+function CompactMetric({ label, value }: { label: string, value: string }) {
+  return <div className="soft rounded-lg p-3"><div className="text-[8px] text-slate-600">{label}</div><div className="text-xs font-bold mt-1">{value}</div></div>
 }
 
 function ProductDrawer({ product, vat, close, addPlanner, save }: { product: Product, vat: VatBasis, close: () => void, addPlanner: (id: string) => void, save: (p: Product) => void }) {
