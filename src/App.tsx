@@ -256,15 +256,15 @@ function ProductDrawer({ product, vat, close, addPlanner, save }: { product: Pro
   const [sale, setSale] = useState(product.research?.expectedSellingPrice ?? 0)
   const [fee, setFee] = useState(12.8)
   const [fixed, setFixed] = useState(0.3)
-  const [shipping, setShipping] = useState(3.29)
-  const [packaging, setPackaging] = useState(0.45)
-  const [promoted, setPromoted] = useState(0)
   const eligibleShipping = eligibleRoyalMailRates({
     lengthCm: product.packagedLengthCm ?? null,
     widthCm: product.packagedWidthCm ?? null,
     depthCm: product.packagedDepthCm ?? null,
     weightKg: product.packagedWeightKg ?? null,
   })
+  const [shipping, setShipping] = useState(eligibleShipping[0]?.onlinePrice ?? 3.29)
+  const [packaging, setPackaging] = useState(0.45)
+  const [promoted, setPromoted] = useState(0)
   const [shippingRateId, setShippingRateId] = useState(eligibleShipping[0]?.id ?? 'manual')
   const costs = productCosts(product, vat)
   const result = calculateProfit({ unitPurchaseCost: costs.unit, salePrice: sale, ebayPercentageFee: fee, ebayFixedFee: fixed, shippingCost: shipping, packagingCost: packaging, promotedListingPercentage: promoted, unitsPerLot: product.unitsPerLot })
