@@ -53,6 +53,7 @@ export default async function handler(request, response) {
     })
     if (!upstream.ok) throw new Error(`GEM returned HTTP ${upstream.status}`)
     const html = await upstream.text()
+    const pageText = decode(html)
 
     const title = first(html, [
       /<h1[^>]*>([\s\S]*?)<\/h1>/i,
@@ -88,6 +89,13 @@ export default async function handler(request, response) {
       /<meta[^>]+property=["']product:category["'][^>]+content=["']([^"']+)/i,
     ])
     const outOfStock = /temporarily out of stock|can't be ordered at present/i.test(html)
+    const packagedDimensions = pageText.match(/Packaged Dimensions:\s*([\d.]+)\s*(?:cm)?\s*x\s*([\d.]+)\s*(?:cm)?\s*x\s*([\d.]+)\s*cm/i)
+    const packagedWeight = pageText.match(/Packaged Weight:\s*([\d.]+)\s*(kg|g)\b/i)
+    const packagedLengthCm = numeric(packagedDimensions?.[1])
+    const packagedWidthCm = numeric(packagedDimensions?.[2])
+    const packagedDepthCm = numeric(packagedDimensions?.[3])
+    const rawWeight = numeric(packagedWeight?.[1])
+    const packagedWeightKg = rawWeight == null ? null : packagedWeight?.[2].toLowerCase() === 'g' ? rawWeight / 1000 : rawWeight
 
     if (!title || !gemSku || !unitsPerLot || lotCostExVat == null) {
       return response.status(422).json({
@@ -111,6 +119,10 @@ export default async function handler(request, response) {
         lotCostIncVat: lotCostExVat * VAT_MULTIPLIER,
         unitCostExVat: calculatedUnitEx,
         unitCostIncVat: calculatedUnitEx * VAT_MULTIPLIER,
+        packagedLengthCm,
+        packagedWidthCm,
+        packagedDepthCm,
+        packagedWeightKg,
         stockStatus: outOfStock ? 'out_of_stock' : 'in_stock',
         importedAt: now,
         updatedAt: now,

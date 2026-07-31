@@ -43,6 +43,10 @@ export type Product = {
   lotCostIncVat: number
   unitCostExVat: number
   unitCostIncVat: number
+  packagedLengthCm: number | null
+  packagedWidthCm: number | null
+  packagedDepthCm: number | null
+  packagedWeightKg: number | null
   stockStatus: StockStatus
   importedAt: string
   updatedAt: string
