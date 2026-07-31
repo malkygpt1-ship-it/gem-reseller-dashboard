@@ -85,7 +85,7 @@ export default function App() {
       <div className="p-4 md:p-7 lg:p-9 max-w-[1500px] mx-auto">
         {view === 'dashboard' && <Dashboard products={products} planner={planner} vat={vat} setVat={changeVat} go={setView} open={setSelected} />}
         {view === 'catalogue' && <Catalogue products={products} vat={vat} go={setView} open={setSelected} addPlanner={addPlanner} />}
-        {view === 'import' && <ImportProduct />}
+        {view === 'import' && <ImportProduct products={products} save={saveProducts} open={setSelected} go={setView} />}
         {view === 'planner' && <Planner products={products} planner={planner} save={savePlanner} vat={vat} go={setView} />}
       </div>
     </main>
@@ -209,11 +209,35 @@ function Catalogue({ products, vat, go, open, addPlanner }: { products: Product[
   return <><PageTitle eyebrow="Product intelligence" title="GEM catalogue"><span className="text-[11px] text-slate-500">{products.length} products</span></PageTitle><div className="card">{products.length === 0 ? <EmptyState title="Your GEM product catalogue is empty." body="Import your first GEM product URL to begin tracking costs and eBay resale potential." go={go} /> : <><div className="p-4 border-b border-white/[.06]"><label className="soft h-10 rounded-xl flex items-center px-3"><Search size={15} className="text-slate-600" /><input aria-label="Search catalogue" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search title, GEM SKU or category…" className="bg-transparent outline-none text-xs px-3 w-full" /></label></div><div className="overflow-x-auto scrollbar"><table className="w-full"><thead>{table.getHeaderGroups().map(group => <tr key={group.id}>{group.headers.map(h => <th key={h.id} className="text-left text-[9px] uppercase text-slate-600 px-4 py-3 whitespace-nowrap">{flexRender(h.column.columnDef.header, h.getContext())}</th>)}</tr>)}</thead><tbody>{table.getRowModel().rows.map(row => <tr key={row.id} onClick={() => open(row.original)} className="border-t border-white/[.05] cursor-pointer hover:bg-white/[.02]">{row.getVisibleCells().map(cell => <td key={cell.id} className="px-4 py-3 text-xs">{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>)}</tr>)}</tbody></table></div></>}</div></>
 }
 
-function ImportProduct() {
+function ImportProduct({ products, save, open, go }: { products: Product[], save: (products: Product[]) => void, open: (product: Product) => void, go: Go }) {
   const [url, setUrl] = useState('')
   const [message, setMessage] = useState('')
-  const run = () => setMessage('The GEM scraper API is not connected yet. No product was created.')
-  return <><PageTitle eyebrow="Single product import" title="Import from GEM" /><div className="card p-6 md:p-8 max-w-4xl"><Zap size={22} className="text-lime" /><h2 className="heading text-xl font-bold mt-6">Paste a GEM Imports URL</h2><p className="text-xs text-slate-500 mt-2">Only verified data returned by the server-side GEM scraper will be saved. This interface never invents product details.</p><label className="block text-[10px] uppercase text-slate-500 font-bold mt-7">Product URL<div className="soft rounded-xl h-12 flex items-center mt-2 px-4"><ExternalLink size={15} className="text-slate-600" /><input value={url} onChange={e => { setUrl(e.target.value); setMessage('') }} className="bg-transparent flex-1 outline-none px-3 text-xs" placeholder="https://www.gemimports.co.uk/..." /><button disabled={!url.includes('gemimports.co.uk')} onClick={run} className="bg-lime disabled:opacity-30 text-black rounded-lg px-4 py-2 text-[11px] font-bold">Import</button></div></label>{message && <div role="alert" className="mt-4 text-xs text-amber-300 bg-amber-400/[.06] border border-amber-400/15 p-3 rounded-xl">{message}</div>}</div></>
+  const [loading, setLoading] = useState(false)
+  const [imported, setImported] = useState<Product | null>(null)
+  const run = async () => {
+    setLoading(true)
+    setMessage('')
+    setImported(null)
+    try {
+      const response = await fetch('/api/import-product', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ url }),
+      })
+      const result = await response.json() as { product?: Product, error?: string }
+      if (!response.ok || !result.product) throw new Error(result.error ?? 'Import failed.')
+      const existing = products.find(product => product.gemUrl === result.product!.gemUrl || product.gemSku === result.product!.gemSku)
+      const nextProduct = existing ? { ...result.product, id: existing.id, importedAt: existing.importedAt, notes: existing.notes, research: existing.research, opportunityStatus: existing.opportunityStatus } : result.product
+      save(existing ? products.map(product => product.id === existing.id ? nextProduct : product) : [nextProduct, ...products])
+      setImported(nextProduct)
+      setMessage(existing ? 'Product refreshed with the latest verified GEM pricing and stock.' : 'Product imported successfully.')
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Import failed.')
+    } finally {
+      setLoading(false)
+    }
+  }
+  return <><PageTitle eyebrow="Single product import" title="Import from GEM" /><div className="card p-6 md:p-8 max-w-4xl"><Zap size={22} className="text-lime" /><h2 className="heading text-xl font-bold mt-6">Paste a GEM Imports URL</h2><p className="text-xs text-slate-500 mt-2">Only verified data returned by the server-side GEM scraper will be saved. This interface never invents product details.</p><label className="block text-[10px] uppercase text-slate-500 font-bold mt-7">Product URL<div className="soft rounded-xl h-12 flex items-center mt-2 px-4"><ExternalLink size={15} className="text-slate-600" /><input value={url} onChange={e => { setUrl(e.target.value); setMessage(''); setImported(null) }} className="bg-transparent flex-1 outline-none px-3 text-xs" placeholder="https://www.gemimports.co.uk/..." /><button disabled={!url.includes('gemimports.co.uk') || loading} onClick={run} className="bg-lime disabled:opacity-30 text-black rounded-lg px-4 py-2 text-[11px] font-bold">{loading ? 'Importing…' : 'Import'}</button></div></label>{message && <div role="status" className={`mt-4 text-xs p-3 rounded-xl border ${imported ? 'text-emerald-300 bg-emerald-400/[.06] border-emerald-400/15' : 'text-amber-300 bg-amber-400/[.06] border-amber-400/15'}`}>{message}{imported && <span className="ml-3"><button onClick={() => open(imported)} className="text-lime font-bold">View details</button><button onClick={() => go('catalogue')} className="text-lime font-bold ml-3">Open catalogue</button></span>}</div>}</div></>
 }
 
 function Planner({ products, planner, save, vat, go }: { products: Product[], planner: PlannerItem[], save: (x: PlannerItem[]) => void, vat: VatBasis, go: Go }) {
